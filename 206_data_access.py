@@ -105,7 +105,8 @@ cur.execute(statement)
 ## Task 1: Dealing with movies
 
 # write a list of movies
-movie_list = ["The Shawshank Redemption", "The Godfather", "The Dark Knight", "Schindler's List", "Pulp Fiction", "The Lord of the Rings: The Return of the King", "The Good, the Bad and the Ugly", "Fight Club", "Forrest Gump", "Inception", "One Flew Over the Cuckoo's Nest"]
+# movie_list = ["The Shawshank Redemption", "The Godfather", "The Dark Knight", "Schindler's List", "Pulp Fiction", "The Lord of the Rings: The Return of the King", "The Good, the Bad and the Ugly", "Fight Club", "Forrest Gump", "Inception", "One Flew Over the Cuckoo's Nest"]
+movie_list = ["La La Land", "Moonlight", "Jackie", "Manchester by the Sea", "Rogue One", "Zootopia", "Captain America: Civil War", "Suicide Squad", "Nocturnal Animals", "Fantastic Beasts and Where to Find Them"]
 
 # write a function to search for a movie and store them into the json file
 
@@ -163,7 +164,7 @@ for m in movie_results:
 
 	list_of_movie_dic.append(movie_dic)
 
-print(list_of_movie_dic[0].keys())
+
 
 
 # CONSTRUCT A MOVIE CLASS
@@ -207,7 +208,7 @@ def get_tweets(phrase):
 		pass
 	else:
 		print('getting data from internet for', phrase)
-		twitter_results = api.search(q=phrase) # get it from the internet
+		twitter_results = api.search(q=phrase, lang = "en", count = 100, result_type = "popular") # get it from the internet
 		CACHE_DICTION[unique_identifier] = twitter_results
 		# but also, save in the dictionary to cache it
 		
@@ -231,23 +232,24 @@ for movie in movie_object_list:
 	tweet_search_result = get_tweets(title) #this is a list of tweets about the movie
 	for t in tweet_search_result['statuses']:
 		# for building a tweet dictionary
-		tweet = {}
-		tweet['movie_id'] = movie_id
-		tweet['tweet_id'] = t['id']
-		tweet['tweet_text'] = t['text']
-		tweet['user_id'] = t['user']['id_str']
-		tweet['num_retweets'] = t['retweet_count']
-		tweet['num_favs'] = t['favorite_count']
-		# append the tweet to the tweet list
-		tweet_list.append(tweet)
+		if "RT @" not in t['text']:
+			tweet = {}
+			tweet['movie_id'] = movie_id
+			tweet['tweet_id'] = t['id']
+			tweet['tweet_text'] = t['text']
+			tweet['user_id'] = t['user']['id_str']
+			tweet['num_retweets'] = t['retweet_count']
+			tweet['num_favs'] = t['favorite_count']
+			# append the tweet to the tweet list
+			tweet_list.append(tweet)
 
-		# for building a user dictionary
-		if len(t['entities']['user_mentions']) >= 1:
-			for i in t['entities']['user_mentions']:
-				if i['id_str'] not in user_list:
-					user_list.append(i['id_str'])
-		if t['user']['id_str'] not in user_list:
-			user_list.append(t['user']['id_str'])
+			# for building a user dictionary
+			if len(t['entities']['user_mentions']) >= 1:
+				for i in t['entities']['user_mentions']:
+					if i['id_str'] not in user_list:
+						user_list.append(i['id_str'])
+			if t['user']['id_str'] not in user_list:
+				user_list.append(t['user']['id_str'])
 
 
 
@@ -345,17 +347,34 @@ user_tuple_list = []
 for u in users:
 	user_tuple_list.append(TweetUser(u).user_tuple())
 
-print(len(user_tuple_list))
-print(user_tuple_list[0])
 
 user_table = 'INSERT OR IGNORE INTO Users VALUES (?,?,?,?,?)'
 for u in user_tuple_list:
 	cur.execute(user_table, u)
 conn.commit()
 
+print ("------------- END OF DATA SET UP ---------------------")
+print ("\n\n")
 
+#########################################################################################
+# SETTING UP QUERIES
+# 1. To pick movies that have rating over or equal to 8.0
+q1 = 'SELECT title FROM Movies WHERE rating >= "8.0"'
+cur.execute(q1)
+movie_names = cur.fetchall()
+movie_rating_over_8 = []
+for i in movie_names:
+	movie_rating_over_8.append(i[0])
 
+# 2. To pick movies that have revenue over 100M
+q2 = 'SELECT title FROM Movies WHERE revenue >= "$100,000,000.00"'
+cur.execute(q2)
+results = cur.fetchall()
+movies_revenue_over_100m = []
+for i in results:
+	movies_revenue_over_100m.append(i[0])
 
+# 3. To pick tweets with over 500 retweets for movies with a revenue over 100M
 
 
 
@@ -452,4 +471,4 @@ class testTweetsDB(unittest.TestCase):
 
 
 # Remember to invoke your tests so they will run! (Recommend using the verbosity=2 argument.)
-unittest.main(verbosity=2) 
+# unittest.main(verbosity=2) 
