@@ -16,20 +16,18 @@
 
 # Put all import statements you need here.
 import unittest
-import itertools
 import collections
 import tweepy
 import twitter_info # same deal as always...
 import json
 import sqlite3
-import re
-import random
 import omdb
 import requests
+import math
 
 # Begin filling in instructions....
 
-##### TWEEPY SETUP CODE:
+##### TWEEPY SETUP CODE: (cited from project 3)
 # Authentication information should be in a twitter_info file...
 consumer_key = twitter_info.consumer_key
 consumer_secret = twitter_info.consumer_secret
@@ -45,7 +43,7 @@ api = tweepy.API(auth, parser=tweepy.parsers.JSONParser())
 
 
 
-### Setting up for gathering data
+### Setting up for gathering data (cited from project 3)
 CACHE_FNAME = "SI206_final_project_cache.json"
 # Put the rest of your caching setup here:
 try:
@@ -58,7 +56,7 @@ except:
 
 
 
-######## SETTING UP DB TABLES
+######## SETTING UP DB TABLES (reference from project 3)
 conn = sqlite3.connect('final_project.db')
 cur = conn.cursor()
 
@@ -106,11 +104,14 @@ cur.execute(statement)
 
 # write a list of movies
 # movie_list = ["The Shawshank Redemption", "The Godfather", "The Dark Knight", "Schindler's List", "Pulp Fiction", "The Lord of the Rings: The Return of the King", "The Good, the Bad and the Ugly", "Fight Club", "Forrest Gump", "Inception", "One Flew Over the Cuckoo's Nest"]
-movie_list = ["La La Land", "Moonlight", "Jackie", "Manchester by the Sea", "Rogue One", "Zootopia", "Captain America: Civil War", "Suicide Squad", "Nocturnal Animals", "Fantastic Beasts and Where to Find Them"]
+movie_list = ["La La Land", "Moonlight", "The Secret Life of Pets", "Manchester by the Sea", "Rogue One", "Zootopia", "Captain America: Civil War", "Suicide Squad", "Nocturnal Animals", "Fantastic Beasts and Where to Find Them"]
+
+
+
 
 # write a function to search for a movie and store them into the json file
-
-def search_movie(movie):
+# reference from project 3
+def search_movie(movie): 
 	unique_identifier = "omdb_{}".format(movie) 
 	if unique_identifier in CACHE_DICTION: # if it is...
 		print('using cached data for', movie)
@@ -130,24 +131,19 @@ def search_movie(movie):
 
 	return CACHE_DICTION[unique_identifier]
 
-# write a for loop to search the list of movies seperately and store the search result into a list
 
-# beautiful = search_movie("A Beautiful Mind")
-# print(beautiful['imdbRating'])
-# print(type(beautiful['imdbRating']))
-# print(beautiful['BoxOffice'])
-# print(type(beautiful['BoxOffice']))
-# print(beautiful['Year'])
-# print(type(beautiful['Year']))
-# print(type(beautiful['imdbID']))
-
+# create a list of movies results
 movie_results = []
 for movie in movie_list:
 	movie_results.append(search_movie(movie))
 
 
+
+
 # from each item in the list (meaning each movie), select the items that you want and make them into a dictionary (a movie's essentials)
 # start a list and store the dictionaries into the list
+# then you should have a list of dictionaries, where one dictionary means a movie
+# the list of dictionaries will be used for constructing Movie objects later
 
 list_of_movie_dic = []
 for m in movie_results:
@@ -169,6 +165,7 @@ for m in movie_results:
 
 # CONSTRUCT A MOVIE CLASS
 class Movie(object):
+	# a Movie instance should have a movie's essentials 
 	def __init__(self, movie = {}):
 		self.imdb_id = movie['imdb_id']
 		self.title = movie['title']
@@ -182,10 +179,12 @@ class Movie(object):
 	def __str__(self):
 		return "Title: {}, Director: {}, imdb id: {}, rating: {}, release year: {}, actors: {}, number of languages: {}, revenue: {}".format(self.title,self.director,self.imdb_id,self.rating,self.release_year,self.actors,self.num_of_lan,self.revenue)
 
+	# should return a tuple with all the movie essentials
 	def movie_tuple(self):
 		return (self.imdb_id,self.title,self.director,self.rating,self.actors,self.release_year,self.revenue,self.num_of_lan)
 
-# CONSTRUCT A LIST OF MOVIE OBJECTS
+# CONSTRUCT A LIST OF MOVIE TUPLES
+# the tuples will be inserted into the database table later
 movie_tuple_list = []
 movie_object_list = []
 for m in list_of_movie_dic:
@@ -200,7 +199,7 @@ for u in movie_tuple_list:
 conn.commit()
 
 
-# Write a function to get tweets from twitter
+# Write a function to get tweets from twitter (reference from project 3)
 def get_tweets(phrase):
 	unique_identifier = "twitter_{}".format(phrase) 
 	if unique_identifier in CACHE_DICTION: # if it is...
@@ -226,13 +225,15 @@ def get_tweets(phrase):
 
 tweet_list = []
 user_list = []
-for movie in movie_object_list:
+
+
+for movie in movie_object_list: # movie is a movie object
 	title = movie.title
 	movie_id = movie.imdb_id
 	tweet_search_result = get_tweets(title) #this is a list of tweets about the movie
 	for t in tweet_search_result['statuses']:
 		# for building a tweet dictionary
-		if "RT @" not in t['text']:
+		if "RT @" not in t['text']: # eliminate retweets from the results
 			tweet = {}
 			tweet['movie_id'] = movie_id
 			tweet['tweet_id'] = t['id']
@@ -272,10 +273,13 @@ class Tweet(object):
 		self.num_favorite = tweet['num_favs']
 		self.num_retweets = tweet['num_retweets']
 
+	# should return a tuple of tweet essentials
 	def tweet_tuple(self):
 		return (self.tweet_id, self.tweet_text, self.user_id, self.movie_id, self.num_favorite, self.num_retweets)
 
+
 # make a list of tweet tuples
+# then insert the list of tuples into the tweets table
 tweet_tuple_list = []
 for t in tweet_list:
 	tweet_tuple_list.append(Tweet(t).tweet_tuple())
@@ -286,8 +290,8 @@ for u in tweet_tuple_list:
 conn.commit()
 
 
-
-def get_user_info(id):
+# get user info from twitter (reference from project 3)
+def get_user_info(id): 
 	unique_identifier = "user_{}".format(id) 
 	if unique_identifier in CACHE_DICTION: # if it is...
 		print('using cached data for user id ', id)
@@ -306,7 +310,8 @@ def get_user_info(id):
 
 
 
-# construct a list of user info
+# construct a list of user info (dictionary)
+# you should have a list of dictionaries where each dictionary is a user with its information
 users = []
 for u in user_list:
 	user = {}
@@ -341,13 +346,14 @@ class TweetUser(object):
 	def user_tuple(self):
 		return (self.user_id, self.screen_name, self.description, self.num_favs, self.num_followers)
 
-# use the user dictionary list to construct a list of user objects
 
+
+# use the user dictionary list to construct a list of user tuples
 user_tuple_list = []
 for u in users:
 	user_tuple_list.append(TweetUser(u).user_tuple())
 
-
+# insert the user tuple list into the user table
 user_table = 'INSERT OR IGNORE INTO Users VALUES (?,?,?,?,?)'
 for u in user_tuple_list:
 	cur.execute(user_table, u)
@@ -361,20 +367,100 @@ print ("\n\n")
 # 1. To pick movies that have rating over or equal to 8.0
 q1 = 'SELECT title FROM Movies WHERE rating >= "8.0"'
 cur.execute(q1)
-movie_names = cur.fetchall()
-movie_rating_over_8 = []
-for i in movie_names:
-	movie_rating_over_8.append(i[0])
+q1_results = cur.fetchall()
+# use list comprehension to make a list of movies with ratings over or equal to 8.0
+movie_rating_over_8 = [i[0] for i in q1_results]
+
+print(" -------------------------------------------")
+print("Movies with >= 8.0 rating")
+for i in movie_rating_over_8:
+	print (i)
+
+
 
 # 2. To pick movies that have revenue over 100M
 q2 = 'SELECT title FROM Movies WHERE revenue >= "$100,000,000.00"'
 cur.execute(q2)
-results = cur.fetchall()
-movies_revenue_over_100m = []
-for i in results:
-	movies_revenue_over_100m.append(i[0])
+q2_results = cur.fetchall()
+# use list comprehension to make a list of movies with revenue of 100M
+movies_revenue_over_100m = [i[0] for i in q2_results]
+print(" ----------------------------------------- ")
+print("Movies with >= 100M revenue")
+for i in movies_revenue_over_100m:
+	print(i)
+
+
 
 # 3. To pick tweets with over 500 retweets for movies with a revenue over 100M
+q3 = 'SELECT Movies.title, Tweets.tweet_text FROM Tweets INNER JOIN Movies on Tweets.movie_id = Movies.imdb_id WHERE Movies.revenue >= "$100,000,000.00" AND Tweets.retweets >= 100'
+cur.execute(q3)
+q3_results = cur.fetchall()
+
+# use dictionary comprehension to count number of occurences of words in tweets of the movies
+# key will be movie title
+# value will a dictionary of words as keys and number of occurences as values
+movie_tweet_dic = {}
+for i in q3_results:
+	if i[0] not in movie_tweet_dic.keys():
+		movie_tweet_dic[i[0]] = []
+		results = i[1].split()
+		for j in results:
+			for k in list(j):
+				movie_tweet_dic[i[0]].append(k.lower())
+	else:
+		results = i[1].split()
+		for j in results:
+			for k in list(j):
+				movie_tweet_dic[i[0]].append(k.lower())
+
+# use dictionary comprehension to append the counter object for characters to each movie
+movie_tweet_char_count = {i: collections.Counter(movie_tweet_dic[i]) for i in movie_tweet_dic.keys()}
+
+# use dictionary comprehension to get the most common word and the occurrences for each movie
+# the value should a tuple with a character and its number of occurrences
+movie_common_char = {i: (movie_tweet_char_count[i].most_common(1)[0][0], movie_tweet_char_count[i][movie_tweet_char_count[i].most_common(1)[0][0]])  for i in movie_tweet_char_count.keys()}
+print(" ------------------------------------------ ")
+print(" Most common character from tweets with over 100 retweets and its number of occurrences for movies with over 100M revenue")
+for i in movie_common_char.keys():
+	print(str(i) + "  " + str(movie_common_char[i][0]) + " " + str(movie_common_char[i][1]))
+
+
+
+
+# 4. To pick user's name, num of favs, num of followers 
+q4 = 'SELECT screen_name, num_favs, num_followers FROM Tweets INNER JOIN Users on Tweets.user_id = Users.user_id WHERE Tweets.retweets >= 200'
+cur.execute(q4)
+q4_results = cur.fetchall()
+
+# alculate the ratio of num_of_followers/num_of_favs (interaction index)
+# use mapping in dictionary comprehension to calculate and put the metrics into the dictionary
+user_metrics = [(i[0], round(i[2]/i[1], 2)) for i in q4_results]
+user_metrics = sorted(user_metrics, key=lambda x:x[1])
+
+print(" ------------------------------ ")
+print(" Interaction Index of users that have tweets with more than 200 retweets")
+for i in user_metrics:
+	print(str(i[0]) + " " + str(i[1]))
+
+
+
+
+q5 = 'SELECT Users.screen_name FROM Tweets INNER JOIN Users on Tweets.user_id = Users.user_id WHERE Tweets.retweets >= 100 '
+cur.execute(q5)
+q5_results = cur.fetchall()
+# use list comprehension to make a list of users with tweets that have more than 100 retweets
+# use set outside of the list to make sure there is no duplicates
+user_retweet_over100 = set([i[0] for i in q5_results])
+print (" ----------------------------------------------- ")
+print(" Users with tweets that have >= 100 retweets")
+for i in user_retweet_over100:
+	print(str(i))
+
+print("\n\n")
+
+
+
+
 
 
 
@@ -408,13 +494,7 @@ class testMovie(unittest.TestCase):
 		movie_dic['year'] = int(m['Year'])
 		movie_dic['director'] = m['Director']
 
-		movie1 = Movie(movie_dic)
-		self.assertEqual(movie1.title, "The Dark Knight")
-		self.assertEqual(movie1.actors, "Christian Bale, Heath Ledger, Aaron Eckhart, Michael Caine")
-		self.assertEqual(movie1.num_of_lan, 2)
-		self.assertEqual(movie1.imdb_id, "tt0468569")
-		self.assertEqual(movie1.revenue, "$533,316,061.00")
-		self.assertEqual(movie1.release_year, 2008)
+
 
 	def test_movie_tuple(self):
 		m = search_movie("The Dark Knight")
@@ -431,7 +511,7 @@ class testMovie(unittest.TestCase):
 
 	def test_movie_cache(self):
 		project_cache = open("SI206_final_project_cache.json","r").read()
-		self.assertTrue("The Dark Knight" in project_cache)
+		self.assertTrue("Zootopia" in project_cache)
 
 	
 
@@ -471,4 +551,4 @@ class testTweetsDB(unittest.TestCase):
 
 
 # Remember to invoke your tests so they will run! (Recommend using the verbosity=2 argument.)
-# unittest.main(verbosity=2) 
+unittest.main(verbosity=2) 
